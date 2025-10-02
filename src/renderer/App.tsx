@@ -82,12 +82,17 @@ const App: React.FC = () => {
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(
     null
   );
-  const [isCodexInstalled, setIsCodexInstalled] = useState<boolean | null>(null);
-  const [isClaudeInstalled, setIsClaudeInstalled] = useState<boolean | null>(null);
+  const [isCodexInstalled, setIsCodexInstalled] = useState<boolean | null>(
+    null
+  );
+  const [isClaudeInstalled, setIsClaudeInstalled] = useState<boolean | null>(
+    null
+  );
   const showGithubRequirement = !ghInstalled || !isAuthenticated;
   // Show agent requirements block if none of the supported CLIs are detected locally.
   // We only actively detect Codex and Claude Code; Factory (Droid) docs are shown as an alternative.
-  const showAgentRequirement = (isCodexInstalled === false) && (isClaudeInstalled === false);
+  const showAgentRequirement =
+    isCodexInstalled === false && isClaudeInstalled === false;
 
   // Persist and apply custom project order (by id)
   const ORDER_KEY = "sidebarProjectOrder";
@@ -144,12 +149,17 @@ const App: React.FC = () => {
           setIsCodexInstalled(codexStatus.isInstalled ?? false);
         } else {
           setIsCodexInstalled(false);
-          console.error("Failed to check Codex CLI installation:", codexStatus.error);
+          console.error(
+            "Failed to check Codex CLI installation:",
+            codexStatus.error
+          );
         }
 
         // Best-effort: detect Claude Code CLI presence
         try {
-          const claude = await (window as any).electronAPI.agentCheckInstallation?.('claude');
+          const claude = await (
+            window as any
+          ).electronAPI.agentCheckInstallation?.("claude");
           setIsClaudeInstalled(!!claude?.isInstalled);
         } catch {
           setIsClaudeInstalled(false);
@@ -282,7 +292,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCreateWorkspace = async (workspaceName: string) => {
+  const handleCreateWorkspace = async (
+    workspaceName: string,
+    initialPrompt?: string
+  ) => {
     if (!selectedProject) return;
 
     setIsCreatingWorkspace(true);
@@ -315,6 +328,30 @@ const App: React.FC = () => {
       });
 
       if (saveResult.success) {
+        // If there's an initial prompt, create conversation and save it as first message
+        if (initialPrompt) {
+          try {
+            const conversationResult =
+              await window.electronAPI.getOrCreateDefaultConversation(
+                newWorkspace.id
+              );
+            if (conversationResult.success && conversationResult.conversation) {
+              const userMessage = {
+                id: `initial-${Date.now()}`,
+                conversationId: conversationResult.conversation.id,
+                content: initialPrompt,
+                sender: "user" as const,
+                metadata: JSON.stringify({ isInitialPrompt: true }),
+              };
+
+              await window.electronAPI.saveMessage(userMessage);
+            }
+          } catch (promptError) {
+            console.error("Failed to save initial prompt:", promptError);
+            // Don't fail workspace creation if prompt saving fails
+          }
+        }
+
         setProjects((prev) =>
           prev.map((project) =>
             project.id === selectedProject.id
@@ -351,7 +388,8 @@ const App: React.FC = () => {
       console.error("Failed to create workspace:", error);
       toast({
         title: "Error",
-        description: (error as Error)?.message ||
+        description:
+          (error as Error)?.message ||
           "Failed to create workspace. Please check the console for details.",
       });
     } finally {
@@ -392,7 +430,10 @@ const App: React.FC = () => {
           }
         }
       } catch (agentError) {
-        console.warn("Failed to remove agent before deleting workspace:", agentError);
+        console.warn(
+          "Failed to remove agent before deleting workspace:",
+          agentError
+        );
       }
 
       const removeResult = await window.electronAPI.worktreeRemove({
@@ -579,11 +620,7 @@ const App: React.FC = () => {
         <div className="container mx-auto px-4 py-8 flex flex-col justify-center min-h-screen">
           <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-4">
-              <img
-                src={emdashLogo}
-                alt="emdash"
-                className="h-16"
-              />
+              <img src={emdashLogo} alt="emdash" className="h-16" />
             </div>
             <p className="text-sm sm:text-base text-gray-700 text-muted-foreground mb-6">
               Run multiple Coding Agents in parallel
